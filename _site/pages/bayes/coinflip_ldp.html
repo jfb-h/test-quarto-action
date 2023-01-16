@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Jakob Hoffmann">
+<meta name="dcterms.date" content="2023-01-01">
+
+<title>Learning Julia - Bayesian inference for a sequence of coinflips</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+    <div class="container-fluid d-flex justify-content-between">
+      <h1 class="quarto-secondary-nav-title">Bayesian inference for a sequence of coinflips</h1>
+      <button type="button" class="quarto-btn-toggle btn" aria-label="Show secondary navigation">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../../">Learning Julia</a> 
+    </div>
+      </div>
+      <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+      </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../agenda.html" class="sidebar-item-text sidebar-link">Agenda</a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">Programming basics</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../pages/programming_recap.html" class="sidebar-item-text sidebar-link">Exercises</a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">Julia fundamentals</span>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">Tabular data</span>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">Data visualization</span>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" aria-expanded="true">Bayesian modeling</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../pages/bayes/coinflip_ldp.html" class="sidebar-item-text sidebar-link active">Simple coinflip model</a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#about-this-tutorial" id="toc-about-this-tutorial" class="nav-link active" data-scroll-target="#about-this-tutorial">About this tutorial</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#model-definition" id="toc-model-definition" class="nav-link" data-scroll-target="#model-definition">Model definition</a></li>
+  <li><a href="#model-estimation" id="toc-model-estimation" class="nav-link" data-scroll-target="#model-estimation">Model estimation</a></li>
+  <li><a href="#model-checking" id="toc-model-checking" class="nav-link" data-scroll-target="#model-checking">Model checking</a></li>
+  <li><a href="#model-inference" id="toc-model-inference" class="nav-link" data-scroll-target="#model-inference">Model inference</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title d-none d-lg-block">Bayesian inference for a sequence of coinflips</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Jakob Hoffmann </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 1, 2023</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="about-this-tutorial" class="level2">
+<h2 class="anchored" data-anchor-id="about-this-tutorial">About this tutorial</h2>
+<p>This is a tutorial on how to use the <code>LogDensityProblems.jl</code> ecosystem for Bayesian inference. Compared to other packages, such as <code>Turing.jl</code>, this approach is a bit more low-level, with the upside of being more hackable and being insightful for learning purposes.</p>
+</section>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<p>For this exercise, we’re interested in performing inference on a simple process where a possibly biased coin is flipped <span class="math inline">\(N=100\)</span> times. More formally, we could state this like so:</p>
+<p><span class="math display">\[
+y_i \sim \mathrm{Bernoulli}(p) \textrm{ for } i = 1,2,...,100
+\]</span></p>
+<p>We start by simulating data from a Bernoulli distribution with the probability of heads set to <span class="math inline">\(p = 0.7\)</span>, which for the inverse problem is going to be the unknown quantity of interest to be inferred from observed data.</p>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Distributions</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>N <span class="op">=</span> <span class="fl">100</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fl">0.7</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="fu">Bernoulli</span>(p)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> <span class="fu">rand</span>(d, N);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="model-definition" class="level2">
+<h2 class="anchored" data-anchor-id="model-definition">Model definition</h2>
+<p>Having simulated data for inference, we now proceed to the model definition using the <code>LogDensityProblems</code> interface package. We store the flips in a struct called <code>CoinflipProblem</code>:</p>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> CoinflipProblem</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  flips<span class="op">::</span><span class="dt">Vector{Bool}</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<blockquote class="blockquote">
+<p><em>Note</em>: The avid reader will notice that this problem could also be more efficiently represented by making use of independence between the flips, in which case we could just record the total number of flips and the number of heads and make use of the binomial distribution. However, for sake of consistency we here stick to the Bernoulli representation.</p>
+</blockquote>
+<p>The centerpiece of most modern Bayesian inference methods is the unnormalized log probability density function of the posterior distribution, which indicates how well a given parameter value fits the evidence provided by our data (encoded in the loglikelihood function) and our prior beliefs. For our numerical estimation procedure, it guides our search of the parameter space to obtain a representative set of draws from the posterior distribution.</p>
+<p>We start by specifying the loglikelihood function:</p>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">loglik</span>(p<span class="op">::</span><span class="dt">Real</span>, flips<span class="op">::</span><span class="dt">Vector{Bool}</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sum</span>(y <span class="op">-&gt;</span> <span class="fu">logpdf</span>(<span class="fu">Bernoulli</span>(p), y), flips)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>For a given value <span class="math inline">\(p\)</span>, the loglikelihood function gives us the sum of the log probability densities of each of our flips under a <span class="math inline">\(\textrm{Bernoulli}(p)\)</span> distribution.</p>
+<p>Next to the likelihood function which makes use of the information from the data, we also need to specify a prior distribution which encodes our prior (before having seen the data) belief about <span class="math inline">\(p\)</span>. Here, we’re going to be broadly skeptical of extremely biased coins and use a <span class="math inline">\(\mathrm{Beta}(2,2)\)</span> prior:</p>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">logpri</span>(p<span class="op">::</span><span class="dt">Real</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">logpdf</span>(<span class="fu">Beta</span>(<span class="fl">2</span>,<span class="fl">2</span>), p)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Here’s a plot of what that looks like:</p>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CairoMakie</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">Beta</span>(<span class="fl">2</span>,<span class="fl">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<p><img src="coinflip_ldp_files/figure-html/cell-8-output-1.svg" class="img-fluid"></p>
+</div>
+</div>
+<p>We now make our problem struct callable on an input parameter <span class="math inline">\(\theta\)</span>, which is just a ‘container’ holding our actual parameter of interest, <span class="math inline">\(p\)</span>, but could also contain other parameters. Calling the struct on a given <span class="math inline">\(\theta\)</span> returns the sum of the log density of the prior and the log likelihood, a.k.a. the log posterior density evaluated at <span class="math inline">\(p\)</span>.</p>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> (problem<span class="op">::</span><span class="dt">CoinflipProblem</span>)(θ)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  (; flips) <span class="op">=</span> problem</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  (; p) <span class="op">=</span> θ</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">logpri</span>(p) <span class="op">+</span> <span class="fu">loglik</span>(p, flips)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>We can now instantiate our problem on the data and evaluate the log posterior density at a couple of values for <span class="math inline">\(p\)</span>:</p>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>problem <span class="op">=</span> <span class="fu">CoinflipProblem</span>(data)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">problem</span>((; p<span class="op">=</span><span class="fl">0.1</span>)), <span class="fu">problem</span>((; p<span class="op">=</span><span class="fl">0.5</span>)), <span class="fu">problem</span>((; p<span class="op">=</span><span class="fl">0.9</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre><code>(-160.56350896406923, -68.90925294788643, -81.46342417996544)</code></pre>
+</div>
+</div>
+<p>While the actual values of the log posterior density are not immediately that useful, we can already infer that, given the data and our prior beliefs, <span class="math inline">\(p=0.5\)</span> is deemed similarly likely compared to <span class="math inline">\(p=0.9\)</span> and much more likely than <span class="math inline">\(p=0.1\)</span>.</p>
+</section>
+<section id="model-estimation" class="level2">
+<h2 class="anchored" data-anchor-id="model-estimation">Model estimation</h2>
+<p>Having defined a way to evaluate the posterior density for a given parameter value, we now want a full representation of the posterior distribution to draw conclusions about the coin. While for simple problems, like the one presented here, a closed-form analytical solution is available, a more general method which also works for complicated models is to draw a large number of samples from the posterior distribution. Based on these samples, one can easily derive statements about certain summaries of the posterior distribution (e.g., its mean and standard deviation) or visualize it.</p>
+<p>A general purpose numerical procedure for obtaining samples from the posterior distribution, using the unnormalized log posterior density function (as specified above) and its gradient, is Hamiltonian Monte Carlo (HMC) and its variants.</p>
+<p>As more of an implementation detail, HMC operates on the unconstrained reals but our parameter <span class="math inline">\(p\)</span> is confined to the unit interval <span class="math inline">\((0,1)\)</span> so we need an appropriate transformation, which is conveniently available in the <code>TransformedLogDensities</code> package. As mentioned, HMC furthermore requires the gradient of the posterior density, which we can conveniently obtain via automatic differentiation, in this case using the <code>ForwardDiff</code> package.</p>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LogDensityProblems</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">TransformVariables</span>, <span class="bu">TransformedLogDensities</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LogDensityProblemsAD</span>, <span class="bu">ForwardDiff</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>transformation <span class="op">=</span> <span class="fu">as</span>((p<span class="op">=</span>as_unit_interval,))</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>tran <span class="op">=</span> <span class="fu">TransformedLogDensity</span>(transformation, problem)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>grad <span class="op">=</span> <span class="fu">ADgradient</span>(<span class="op">:</span>ForwardDiff, tran)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<pre><code>ForwardDiff AD wrapper for TransformedLogDensity of dimension 1, w/ chunk size 1</code></pre>
+</div>
+</div>
+<p>We can now evaluate the logdensity and its gradient:</p>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>LogDensityProblems.<span class="fu">logdensity_and_gradient</span>(grad, <span class="fu">zeros</span>(<span class="fl">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<pre><code>(-70.29554730900632, [18.0])</code></pre>
+</div>
+</div>
+<p>With this in place, we can now draw a large number of samples (say, <span class="math inline">\(S=2000\)</span>) from the posterior distribution using the HMC implementation in <code>DynamicHMC</code>. We use the <code>ThreadsX</code> package to sample <span class="math inline">\(k\)</span> chains in parallel:</p>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Random</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DynamicHMC</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">ThreadsX</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sample</span>(grad, S, k; rng<span class="op">=</span><span class="bu">Random</span>.<span class="fu">default_rng</span>()) </span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>   ThreadsX.<span class="fu">map</span>(<span class="fl">1</span><span class="op">:</span>k) <span class="cf">do</span> _</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>     <span class="fu">mcmc_with_warmup</span>(rng, grad, S; reporter<span class="op">=</span><span class="fu">NoProgressReport</span>())</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>   <span class="cf">end</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> <span class="fu">sample</span>(grad, <span class="fl">2000</span>, <span class="fl">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<pre><code>4-element Vector{NamedTuple{(:posterior_matrix, :tree_statistics, :κ, :ϵ), Tuple{Matrix{Float64}, Vector{DynamicHMC.TreeStatisticsNUTS}, GaussianKineticEnergy{LinearAlgebra.Diagonal{Float64, Vector{Float64}}, LinearAlgebra.Diagonal{Float64, Vector{Float64}}}, Float64}}}:
+ (posterior_matrix = [0.42505989546098893 1.0863757983697473 … 0.814567548310582 0.814567548310582], tree_statistics = [DynamicHMC.TreeStatisticsNUTS(-65.6441386177003, 1, turning at positions -1:-2, 0.7720493272827138, 3, DynamicHMC.Directions(0x5e73a8a1)), DynamicHMC.TreeStatisticsNUTS(-69.31014546022408, 1, turning at positions -1:-2, 0.5894694006820206, 3, DynamicHMC.Directions(0x901b46f5)), DynamicHMC.TreeStatisticsNUTS(-66.4559977992747, 2, turning at positions -1:2, 0.9194563264060637, 3, DynamicHMC.Directions(0xc71cd5c2)), DynamicHMC.TreeStatisticsNUTS(-64.37290965288247, 1, turning at positions -1:-2, 0.9548406366667795, 3, DynamicHMC.Directions(0xed36e129)), DynamicHMC.TreeStatisticsNUTS(-64.2976947365825, 1, turning at positions 1:2, 0.975426312536316, 3, DynamicHMC.Directions(0x76639c56)), DynamicHMC.TreeStatisticsNUTS(-63.982529341156905, 1, turning at positions -1:0, 1.0, 1, DynamicHMC.Directions(0xf5ef0e92)), DynamicHMC.TreeStatisticsNUTS(-64.08098133716761, 1, turning at positions -1:-2, 0.9829191876937925, 3, DynamicHMC.Directions(0xa6d5a401)), DynamicHMC.TreeStatisticsNUTS(-66.16053124486685, 1, turning at positions -1:-2, 0.719731646132196, 3, DynamicHMC.Directions(0xd23ca0ad)), DynamicHMC.TreeStatisticsNUTS(-65.50735602697235, 2, turning at positions -2:1, 0.9999999999999999, 3, DynamicHMC.Directions(0x42221275)), DynamicHMC.TreeStatisticsNUTS(-64.12100034864153, 1, turning at positions -1:-2, 0.9794299748697844, 3, DynamicHMC.Directions(0x1581f131))  …  DynamicHMC.TreeStatisticsNUTS(-64.13307218094191, 2, turning at positions -2:1, 0.9999999999999999, 3, DynamicHMC.Directions(0x7c734571)), DynamicHMC.TreeStatisticsNUTS(-64.08752851082693, 1, turning at positions 1:2, 0.9778397791587726, 3, DynamicHMC.Directions(0xf728cb02)), DynamicHMC.TreeStatisticsNUTS(-64.96389004959296, 1, turning at positions -2:-3, 0.9074466863347471, 3, DynamicHMC.Directions(0x39826c94)), DynamicHMC.TreeStatisticsNUTS(-65.15929172138053, 2, turning at positions 5:6, 0.9082684840425133, 7, DynamicHMC.Directions(0xbce4b66e)), DynamicHMC.TreeStatisticsNUTS(-65.47385023279003, 1, turning at positions -2:-3, 0.9542479301469196, 3, DynamicHMC.Directions(0x43ffb738)), DynamicHMC.TreeStatisticsNUTS(-63.98991313506381, 2, turning at positions -3:0, 0.992937731089448, 3, DynamicHMC.Directions(0x9a22eee4)), DynamicHMC.TreeStatisticsNUTS(-64.18264303748485, 1, turning at positions 1:2, 0.9666570689915545, 3, DynamicHMC.Directions(0x2abf69ee)), DynamicHMC.TreeStatisticsNUTS(-64.70837260600398, 2, turning at positions 0:3, 0.9379331260275768, 3, DynamicHMC.Directions(0x4fff5f5f)), DynamicHMC.TreeStatisticsNUTS(-64.2861730219423, 2, turning at positions -3:0, 0.9533034131578706, 3, DynamicHMC.Directions(0x8084d26c)), DynamicHMC.TreeStatisticsNUTS(-66.24316725663971, 1, turning at positions -1:-2, 0.7010462480127718, 3, DynamicHMC.Directions(0xa82ce5a1))], κ = Gaussian kinetic energy (Diagonal), √diag(M⁻¹): [0.20160668352485045], ϵ = 0.9293966747054117)
+ (posterior_matrix = [0.6490393294987946 0.6490393294987946 … 0.6965187926789422 0.9665634460149771], tree_statistics = [DynamicHMC.TreeStatisticsNUTS(-64.33570665894408, 2, turning at positions -3:0, 0.9674925620310365, 3, DynamicHMC.Directions(0xf0f55ac8)), DynamicHMC.TreeStatisticsNUTS(-64.69496798898601, 1, turning at positions -1:-2, 0.845835506302734, 3, DynamicHMC.Directions(0x5254e299)), DynamicHMC.TreeStatisticsNUTS(-64.05641144327137, 2, turning at positions -1:2, 0.9906070892175628, 3, DynamicHMC.Directions(0x942824fe)), DynamicHMC.TreeStatisticsNUTS(-63.984504566549646, 2, turning at positions -3:0, 0.9929398284723162, 3, DynamicHMC.Directions(0x18f2ac90)), DynamicHMC.TreeStatisticsNUTS(-63.95010396466058, 2, turning at positions -1:2, 0.9999999999999999, 3, DynamicHMC.Directions(0xd246a1f2)), DynamicHMC.TreeStatisticsNUTS(-64.8900635618277, 1, turning at positions -1:-2, 0.8188471715043845, 3, DynamicHMC.Directions(0x7c38df05)), DynamicHMC.TreeStatisticsNUTS(-66.12910573449444, 1, turning at positions 0:1, 0.700645480221775, 1, DynamicHMC.Directions(0x636d1b39)), DynamicHMC.TreeStatisticsNUTS(-65.98241897192041, 1, turning at positions 0:1, 1.0, 1, DynamicHMC.Directions(0x00421d4d)), DynamicHMC.TreeStatisticsNUTS(-65.62328765813363, 1, turning at positions -1:0, 0.9281862805929181, 1, DynamicHMC.Directions(0xba65d7a4)), DynamicHMC.TreeStatisticsNUTS(-65.08638983945981, 1, turning at positions -2:-3, 0.9999999999999999, 3, DynamicHMC.Directions(0x788431a8))  …  DynamicHMC.TreeStatisticsNUTS(-64.41209231434836, 1, turning at positions 0:1, 1.0, 1, DynamicHMC.Directions(0x85fc97d3)), DynamicHMC.TreeStatisticsNUTS(-64.71002582709123, 2, turning at positions 0:3, 0.9225976725393897, 3, DynamicHMC.Directions(0xa43874cf)), DynamicHMC.TreeStatisticsNUTS(-63.98245260863411, 1, turning at positions 0:1, 1.0, 1, DynamicHMC.Directions(0x15e0fd47)), DynamicHMC.TreeStatisticsNUTS(-64.54295418837634, 2, turning at positions 0:3, 0.9019393193688995, 3, DynamicHMC.Directions(0x7c9fb717)), DynamicHMC.TreeStatisticsNUTS(-64.2136551451728, 2, turning at positions -2:1, 0.9836016536197238, 3, DynamicHMC.Directions(0xe529e1f5)), DynamicHMC.TreeStatisticsNUTS(-63.94957773993433, 1, turning at positions 0:1, 1.0, 1, DynamicHMC.Directions(0xf07b8935)), DynamicHMC.TreeStatisticsNUTS(-63.977741335565725, 2, turning at positions 0:3, 0.9937830119424099, 3, DynamicHMC.Directions(0x12475b33)), DynamicHMC.TreeStatisticsNUTS(-63.953738455581714, 2, turning at positions -1:2, 0.9996637424549296, 3, DynamicHMC.Directions(0x1e1eed82)), DynamicHMC.TreeStatisticsNUTS(-63.945386822066716, 2, turning at positions -3:0, 0.9982109257912466, 3, DynamicHMC.Directions(0x788d8624)), DynamicHMC.TreeStatisticsNUTS(-64.79412949400819, 1, turning at positions 1:2, 0.8344157919819111, 3, DynamicHMC.Directions(0x7e78edb6))], κ = Gaussian kinetic energy (Diagonal), √diag(M⁻¹): [0.17815613633808952], ϵ = 1.243456979574239)
+ (posterior_matrix = [0.8258541669026621 0.5575518831236066 … 0.7375913559383956 0.7375913559383956], tree_statistics = [DynamicHMC.TreeStatisticsNUTS(-64.45559858086844, 1, turning at positions 0:1, 0.7980720034648046, 1, DynamicHMC.Directions(0x16ca785b)), DynamicHMC.TreeStatisticsNUTS(-64.35348880990301, 2, turning at positions 0:3, 0.9607269397738211, 3, DynamicHMC.Directions(0x0ee73173)), DynamicHMC.TreeStatisticsNUTS(-64.49468011136995, 1, turning at positions 0:1, 0.9487533310430731, 1, DynamicHMC.Directions(0x4acec931)), DynamicHMC.TreeStatisticsNUTS(-64.2777500705689, 1, turning at positions -1:0, 1.0, 1, DynamicHMC.Directions(0x9df64778)), DynamicHMC.TreeStatisticsNUTS(-64.17781633876521, 2, turning at positions -3:0, 0.9687468894175026, 3, DynamicHMC.Directions(0x52f957f0)), DynamicHMC.TreeStatisticsNUTS(-66.65876710792213, 1, turning at positions 1:2, 0.4450488708728844, 3, DynamicHMC.Directions(0x09c6b622)), DynamicHMC.TreeStatisticsNUTS(-63.96697775197918, 1, turning at positions -1:0, 1.0, 1, DynamicHMC.Directions(0x92deacae)), DynamicHMC.TreeStatisticsNUTS(-64.80337303984255, 1, turning at positions -1:-2, 0.6622653329247822, 3, DynamicHMC.Directions(0x93540e95)), DynamicHMC.TreeStatisticsNUTS(-63.95257283896458, 2, turning at positions -1:2, 0.9999999999999999, 3, DynamicHMC.Directions(0xe31d603e)), DynamicHMC.TreeStatisticsNUTS(-63.93879995433242, 1, turning at positions -1:0, 1.0, 1, DynamicHMC.Directions(0xcfdf4f2e))  …  DynamicHMC.TreeStatisticsNUTS(-64.27659563424389, 2, turning at positions 0:3, 0.9188134128867608, 3, DynamicHMC.Directions(0xc44edef3)), DynamicHMC.TreeStatisticsNUTS(-64.29960013429316, 2, turning at positions -2:1, 0.9864236692102905, 3, DynamicHMC.Directions(0x81e8a051)), DynamicHMC.TreeStatisticsNUTS(-64.4595092217462, 2, turning at positions -3:0, 0.896766132738969, 3, DynamicHMC.Directions(0x022ec2c8)), DynamicHMC.TreeStatisticsNUTS(-64.92777293888273, 2, turning at positions 0:3, 0.8959483941496461, 3, DynamicHMC.Directions(0x913740df)), DynamicHMC.TreeStatisticsNUTS(-68.13119973569665, 1, turning at positions 1:2, 0.284844612562679, 3, DynamicHMC.Directions(0x0bb22692)), DynamicHMC.TreeStatisticsNUTS(-64.29440258085137, 1, turning at positions -1:0, 1.0, 1, DynamicHMC.Directions(0xae465eae)), DynamicHMC.TreeStatisticsNUTS(-64.91622011755443, 2, turning at positions 0:3, 0.8689941143721458, 3, DynamicHMC.Directions(0xbdac840f)), DynamicHMC.TreeStatisticsNUTS(-64.30137424533171, 2, turning at positions -3:0, 0.9736722554455438, 3, DynamicHMC.Directions(0x7774d164)), DynamicHMC.TreeStatisticsNUTS(-64.09713434217794, 1, turning at positions 1:2, 0.9320772736998718, 3, DynamicHMC.Directions(0xcb6a5ad6)), DynamicHMC.TreeStatisticsNUTS(-64.17571122470792, 1, turning at positions -1:-2, 0.9025924298481754, 3, DynamicHMC.Directions(0x5c9cbd7d))], κ = Gaussian kinetic energy (Diagonal), √diag(M⁻¹): [0.2154995848145599], ϵ = 1.211583933253109)
+ (posterior_matrix = [0.6873448457499447 0.8561791981399807 … 0.7799115365263016 0.7181014661468901], tree_statistics = [DynamicHMC.TreeStatisticsNUTS(-64.0899543759111, 1, turning at positions 2:3, 0.9999999999999999, 3, DynamicHMC.Directions(0x41fe8c43)), DynamicHMC.TreeStatisticsNUTS(-64.24910349510643, 1, turning at positions 1:2, 0.9438582917952042, 3, DynamicHMC.Directions(0xb8cde62a)), DynamicHMC.TreeStatisticsNUTS(-64.27053744809938, 1, turning at positions 0:1, 0.9746870970955887, 1, DynamicHMC.Directions(0x5e13a73b)), DynamicHMC.TreeStatisticsNUTS(-64.31638990613621, 1, turning at positions 2:3, 0.9865436439667566, 3, DynamicHMC.Directions(0xbffc2b3b)), DynamicHMC.TreeStatisticsNUTS(-64.09453350582963, 2, turning at positions -3:0, 0.9763883060544166, 3, DynamicHMC.Directions(0x98019cd4)), DynamicHMC.TreeStatisticsNUTS(-65.84569881405254, 2, turning at positions -3:0, 0.7890431583077278, 3, DynamicHMC.Directions(0x62f33c6c)), DynamicHMC.TreeStatisticsNUTS(-66.76030908478285, 1, turning at positions 0:1, 0.6293904371754105, 1, DynamicHMC.Directions(0xf3b7fd01)), DynamicHMC.TreeStatisticsNUTS(-67.12137540856217, 2, turning at positions -1:2, 0.8834343340417442, 3, DynamicHMC.Directions(0xaa0834a6)), DynamicHMC.TreeStatisticsNUTS(-67.08389911888314, 1, turning at positions -1:0, 1.0, 1, DynamicHMC.Directions(0x54e41500)), DynamicHMC.TreeStatisticsNUTS(-66.38239561255686, 1, turning at positions 0:1, 1.0, 1, DynamicHMC.Directions(0xfc3bd62d))  …  DynamicHMC.TreeStatisticsNUTS(-63.948536831342665, 1, turning at positions -1:0, 1.0, 1, DynamicHMC.Directions(0xd2ce8bb0)), DynamicHMC.TreeStatisticsNUTS(-63.94356523899352, 2, turning at positions -1:2, 0.9999999999999999, 3, DynamicHMC.Directions(0xae63c47a)), DynamicHMC.TreeStatisticsNUTS(-64.03134340843145, 1, turning at positions 1:2, 0.9821713505337627, 3, DynamicHMC.Directions(0xbb01987e)), DynamicHMC.TreeStatisticsNUTS(-65.7737688815397, 1, turning at positions 1:2, 0.7035817371363562, 3, DynamicHMC.Directions(0xd8de9afa)), DynamicHMC.TreeStatisticsNUTS(-65.56700062642435, 1, turning at positions -2:-3, 0.9951650149470072, 3, DynamicHMC.Directions(0x5e734b28)), DynamicHMC.TreeStatisticsNUTS(-63.950477374023464, 2, turning at positions -3:0, 0.9976201265242027, 3, DynamicHMC.Directions(0xfe7fee5c)), DynamicHMC.TreeStatisticsNUTS(-64.65491855836747, 2, turning at positions 0:3, 0.9045389943071404, 3, DynamicHMC.Directions(0xbd086b5b)), DynamicHMC.TreeStatisticsNUTS(-64.33082949204807, 1, turning at positions 2:3, 0.9999999999999999, 3, DynamicHMC.Directions(0x34aa2ecf)), DynamicHMC.TreeStatisticsNUTS(-64.12056701580758, 1, turning at positions -2:-3, 0.987780262916181, 3, DynamicHMC.Directions(0x69b61ee0)), DynamicHMC.TreeStatisticsNUTS(-65.11412378208883, 2, turning at positions 0:3, 0.8357983830962304, 3, DynamicHMC.Directions(0x8437b34b))], κ = Gaussian kinetic energy (Diagonal), √diag(M⁻¹): [0.19834202069771587], ϵ = 1.0727696857905928)</code></pre>
+</div>
+</div>
+<p>The <code>result</code> is a vector of length <span class="math inline">\(k\)</span>, each element of which contains for each chain the posterior samples as well as some statistics about the sampling procedure, which can be used to check if everything went as planned.</p>
+</section>
+<section id="model-checking" class="level2">
+<h2 class="anchored" data-anchor-id="model-checking">Model checking</h2>
+<p>Having obtained samples from the posterior distribution, we’re in principle ready to use our model for inference, i.e., answer the question of whether our coin is biased and by how much, and how certain we can be of the answer based on the data we have seen.</p>
+<p>However, before we jump to inference, it is good practice to perform some model checks: Our estimates rely on a numerical sampling scheme, which can fail, rendering the results unreliable.</p>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">MCMCDiagnosticTools</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DynamicHMC.Diagnostics</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>First, we can check the effective sample size (ess). In Markov chain monte carlo (MCMC) approaches, samples are often correlated, meaning that the total number of ‘effective’ samples is less than obtained by an uncorrelated sampling procedure because consecutive samples carry some of the same information.</p>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>ess, Rhat <span class="op">=</span>  <span class="fu">ess_rhat</span>(<span class="fu">stack_posterior_matrices</span>(result))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="15">
+<pre><code>([2964.8114829505657], [1.0014512557391575])</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summarize_tree_statistics</span>.(<span class="fu">getfield</span>.(result, <span class="op">:</span>tree_statistics))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="16">
+<pre><code>4-element Vector{DynamicHMC.Diagnostics.TreeStatisticsSummary{Float64, NamedTuple{(:max_depth, :divergence, :turning), Tuple{Int64, Int64, Int64}}}}:
+ Hamiltonian Monte Carlo sample of length 2000
+  acceptance rate mean: 0.94, 5/25/50/75/95%: 0.75 0.91 0.98 1.0 1.0
+  termination: divergence =&gt; 0%, max_depth =&gt; 0%, turning =&gt; 100%
+  depth: 0 =&gt; 0%, 1 =&gt; 61%, 2 =&gt; 39%
+ Hamiltonian Monte Carlo sample of length 2000
+  acceptance rate mean: 0.91, 5/25/50/75/95%: 0.63 0.88 0.97 1.0 1.0
+  termination: divergence =&gt; 0%, max_depth =&gt; 0%, turning =&gt; 100%
+  depth: 0 =&gt; 0%, 1 =&gt; 61%, 2 =&gt; 39%
+ Hamiltonian Monte Carlo sample of length 2000
+  acceptance rate mean: 0.87, 5/25/50/75/95%: 0.48 0.81 0.96 1.0 1.0
+  termination: divergence =&gt; 0%, max_depth =&gt; 0%, turning =&gt; 100%
+  depth: 0 =&gt; 0%, 1 =&gt; 58%, 2 =&gt; 42%
+ Hamiltonian Monte Carlo sample of length 2000
+  acceptance rate mean: 0.92, 5/25/50/75/95%: 0.67 0.89 0.98 1.0 1.0
+  termination: divergence =&gt; 0%, max_depth =&gt; 0%, turning =&gt; 100%
+  depth: 0 =&gt; 0%, 1 =&gt; 64%, 2 =&gt; 36%</code></pre>
+</div>
+</div>
+</section>
+<section id="model-inference" class="level2">
+<h2 class="anchored" data-anchor-id="model-inference">Model inference</h2>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">StructArrays</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">posterior</span>(result)</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  samples <span class="op">=</span> <span class="fu">eachcol</span>(<span class="fu">pool_posterior_matrices</span>(result))</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">StructArray</span>(<span class="fu">transform</span>.(transformation, samples))</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>post <span class="op">=</span> <span class="fu">posterior</span>(result);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">summarize</span>(post)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  m, s <span class="op">=</span> <span class="fu">round</span>.((<span class="fu">mean</span>(post.p), <span class="fu">std</span>(post.p)); digits<span class="op">=</span><span class="fl">2</span>)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">println</span>(<span class="st">"posterior mean: "</span>, m)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">println</span>(<span class="st">"posterior sd: "</span>, s)</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="fu">summarize</span>(post)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>posterior mean: 0.67
+posterior sd: 0.05</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">plot_inferred_vs_true</span>(post, p_true)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  fig <span class="op">=</span> <span class="fu">Figure</span>(); ax <span class="op">=</span> <span class="fu">Axis</span>(fig[<span class="fl">1</span>,<span class="fl">1</span>])</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">density!</span>(ax, post.p; color<span class="op">=:</span>grey20)</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">vlines!</span>(ax, p_true; linewidth<span class="op">=</span><span class="fl">2</span>)</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>  fig</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_inferred_vs_true</span>(post, p)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="19">
+<p><img src="coinflip_ldp_files/figure-html/cell-19-output-1.svg" class="img-fluid"></p>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

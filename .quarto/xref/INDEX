@@ -1,0 +1,14 @@
+{
+  "agenda.qmd": {
+    "agenda.html": "efd40508"
+  },
+  "index.qmd": {
+    "index.html": "7ac12269"
+  },
+  "pages/programming_recap.qmd": {
+    "programming_recap.html": "9c20a6fc"
+  },
+  "pages/bayes/coinflip_ldp.qmd": {
+    "coinflip_ldp.html": "30c991aa"
+  }
+}
